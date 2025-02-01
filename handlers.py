@@ -7,6 +7,9 @@ import io
 from states import Form
 import utils
 
+import io
+import matplotlib.pyplot as plt
+from aiogram.types.input_file import BufferedInputFile  
 
 from aiogram.types import InputFile
 
@@ -14,7 +17,7 @@ router = Router()
 import matplotlib.pyplot as plt
 
 
-user_data = {}  # Он будет загружен и сохранён в main.py, чтобы не было циклических импортов.
+user_data = {}  
 
 
 
@@ -246,7 +249,7 @@ async def cmd_log_water(message: Message):
 FOOD_LOG_STATE = {}
 
 @router.message(Command("log_food"))
-async def cmd_log_food(message: Message):
+async def cmd_log_food(message: Message, state: FSMContext):
     user_id = str(message.from_user.id)
     if user_id not in user_data:
         await message.answer("Сначала /set_profile для создания профиля.")
@@ -258,22 +261,63 @@ async def cmd_log_food(message: Message):
         return
 
     product_name = args[1].strip()
-
-    FOOD_LOG_STATE[user_id] = product_name
+    # Сохраняем название продукта в данные FSM
+    await state.update_data(product_for_food=product_name)
     await message.answer(
         f"Вы указали продукт: {product_name}.\n"
         "Сколько граммов вы съели? (введите число)"
     )
+    # Переводим пользователя в состояние, когда мы ожидаем ввод граммов
+    await state.set_state(Form.food_grams)
 
-import io
-import matplotlib.pyplot as plt
-from aiogram.types import InputFile  # импортируем InputFile
 
-import io
-import matplotlib.pyplot as plt
-from aiogram.types import Message
-from aiogram.filters import Command
-from aiogram.types.input_file import BufferedInputFile  # импортируем BufferedInputFile
+@router.message(Form.food_grams)
+async def handle_food_grams(message: Message, state: FSMContext):
+    user_id = str(message.from_user.id)
+    data = await state.get_data()
+    product_name = data.get("product_for_food")
+    if not product_name:
+        await message.answer("Ошибка: не найден продукт для логирования.")
+        return
+
+    try:
+        grams = float(message.text.replace(",", "."))
+    except ValueError:
+        await message.answer("Пожалуйста, введите корректное число для граммов.")
+        return
+
+    # Получаем калорийность продукта (ккал на 100 г)
+    kcal_100g = await utils.get_food_calories(product_name)
+    kcal_total = (kcal_100g * grams) / 100.0
+
+    user = get_or_create_user(user_id)
+    # Обновляем суммарное количество потреблённых калорий
+    user["logged_calories"] += kcal_total
+
+    # Если в профиле ещё нет истории еды, создаём список
+    if "food_log" not in user:
+        user["food_log"] = []
+
+    # Добавляем новую запись в историю еды
+    user["food_log"].append({
+        "product": product_name,
+        "grams": grams,
+        "kcal_total": kcal_total
+    })
+
+    # Сохраняем изменения в JSON
+    utils.save_data_to_json(user_data)
+
+    await message.answer(
+        f"Записано: {product_name}, {grams} г.\n"
+        f"~ {kcal_total:.1f} ккал добавлено к дневному рациону."
+    )
+    # Завершаем работу FSM для логирования еды
+    await state.clear()
+
+
+
+
 
 @router.message(Command("show_graph"))
 async def cmd_show_graph(message: Message):

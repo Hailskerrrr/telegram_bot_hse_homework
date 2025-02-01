@@ -7,3 +7,4 @@ class Form(StatesGroup):
     action_level = State()
     city = State()
     goal = State()
+    food_grams = State()
