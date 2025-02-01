@@ -1,0 +1,14 @@
+{
+    "6511361437": {
+        "weight": 100.0,
+        "height": 200.0,
+        "age": 25,
+        "activity": 45,
+        "city": "Moscow",
+        "water_goal": 3500.0,
+        "calorie_goal": 2425.0,
+        "logged_water": 700.0,
+        "logged_calories": 459.0,
+        "burned_calories": 300.0
+    }
+}
